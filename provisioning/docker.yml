@@ -1,0 +1,37 @@
+- name: Prepare docker enabled machines
+  hosts: docker_hosts
+  become: true
+  roles:
+    - role: user-access
+      user_access_username: crczp-user
+      user_access_ssh_public_key_options: 'restrict,port-forwarding,command="/usr/sbin/nologin"'
+  tasks:
+    - name: Install required system packages for Docker
+      apt:
+        name: gnupg-agent
+        state: latest
+        update_cache: true
+
+    - name: Install docker-compose
+      include_role:
+        name: docker-compose
+
+    - name: Add administrator to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Copy user public key to remote machine
+      copy:
+        src: "{{ global_ssh_public_user_key }}"
+        dest: "/home/crczp-user/.ssh/user_rsa.pub"
+
+    - name: Copy docker container directory to remote machine
+      copy:
+        src: "{{ containers_path }}"
+        dest: "/home/crczp-user/containers"
+
+    - name: Run docker containers
+      community.docker.docker_compose_v2:
+        project_src: "/home/crczp-user/containers/"

@@ -1,0 +1,99 @@
+- name: Gather facts from proxy-jump
+  hosts: proxy-jump
+
+- name: Sandbox networking
+  hosts:
+  - management
+  - routers
+  become: true
+  pre_tasks:
+  - name: Get systemd-resolved status (using command)
+    command: resolvectl status
+    register: resolved_status
+    changed_when: false
+    check_mode: false
+    failed_when: false
+
+  - name: Extract DNS Servers (using regex - handles global and per-link)
+    set_fact:
+      resolved_upstream_dns: "{{ resolved_status.stdout | regex_findall('DNS Servers: (.*)') | map('trim') | join(' ') | split() }}"
+    when: resolved_status.rc == 0
+
+  roles:
+  - role: interface
+    interface_mtu: "{{ hostvars['proxy-jump']['ansible_default_ipv4']['mtu'] }}"
+    interface_interfaces: '
+    {%- import "roles/common/templates/network.j2" as network with context -%}
+    {%- set variables = namespace(
+      interfaces = [],
+      routes = [],
+    ) -%}
+    {%- if interfaces is defined and interfaces -%}
+      {%- for interface in interfaces -%}
+        {%- set variables.routes = [] -%}
+        {%- if interface.routes is defined and interface.routes -%}
+          {%- for route in interface.routes -%}
+            {%- set variables.routes = variables.routes + [{
+              "gateway": route.gw,
+              "mask": route.mask,
+              "network": route.net
+            }] -%}
+          {%- endfor -%}
+        {%- endif -%}
+        {%- set variables.interfaces = variables.interfaces + [{
+          "interface_default_gateway": interface.def_gw_ip,
+          "interface_mac": interface.mac,
+          "interface_routes": variables.routes,
+          "interface_device": network.mac_to_interface(interface.mac)
+        }] -%}
+      {%- endfor -%}
+    {%- endif -%}
+    {%- set inventory_mac_addresses = interfaces | map(attribute="mac") | list -%}
+    {%- set the_rest_interfaces = network.common_network.interfaces |
+      selectattr("macaddress", "defined") |
+      rejectattr("macaddress", "in", inventory_mac_addresses) |
+      selectattr("type", "eq", "ether") | list
+    -%}
+    {%- for interface in the_rest_interfaces -%}
+      {%- set variables.interfaces = variables.interfaces + [{
+        "interface_mac": interface.macaddress,
+        "interface_device": interface.device
+      }] -%}
+    {%- endfor -%}
+    {{ variables.interfaces }}'
+
+  tasks:
+  - name: set ip forward
+    sysctl:
+      name: net.ipv4.ip_forward
+      value: '{% if ip_forward %}1{% else %}0{% endif %}'
+
+- name: NAT and DROP rules on MAN
+  hosts: man
+  become: true
+  pre_tasks:
+  - name: get interface of default gateway
+    shell: ip route list | grep ^default | head -n 1
+    changed_when: false
+    register: default_gateway
+
+  - set_fact:
+      default_gateway_interface: '{{ default_gateway.stdout | regex_search("(?<=dev )[^ ]+") }}'
+  - set_fact:
+      default_gateway_interface_ip: '{{ ansible_facts[default_gateway_interface]["ipv4"]["address"] }}'
+  - set_fact:
+      iptables_rules_string: |
+        - table: nat
+          chain: POSTROUTING
+          out_interface: '{{ default_gateway_interface }}'
+          jump: MASQUERADE
+        {% for private_ip_address_range in ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '224.0.0.0/4'] %}
+        - chain: FORWARD
+          destination: '{{ private_ip_address_range }}'
+          in_interface: 'ens5'
+          out_interface: '{{ hostvars["man"]["default_gateway_interface"] }}'
+          jump: DROP
+        {% endfor %}
+  roles:
+  - role: iptables
+    iptables_rules: "{{ iptables_rules_string | from_yaml }}"

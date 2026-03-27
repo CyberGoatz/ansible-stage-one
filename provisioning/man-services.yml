@@ -1,0 +1,50 @@
+- name: Install Chrony, guacd and setup man-logging-forward on MAN
+  hosts: man
+  become: true
+  pre_tasks:
+    - name: Test network connectivity
+      wait_for:
+        host: 1.1.1.1
+        port: 53
+        timeout: 5
+        state: started
+      register: network_test
+      ignore_errors: true
+      changed_when: false
+
+    - name: Run apt update
+      apt:
+        update_cache: true
+      when: network_test is succeeded
+      ignore_errors: true
+
+    - name: Use existing cache if network unavailable
+      debug:
+        msg: "Network unavailable, using existing package cache"
+      when: network_test is failed
+
+    - name: Install Chrony
+      apt:
+        name: chrony
+
+    - name: Install guacd
+      apt:
+        name: guacd
+
+    - name: Change default listening address of guacd
+      lineinfile:
+        path: /etc/default/guacd
+        regexp: LISTEN_ADDRESS=.*
+        line: LISTEN_ADDRESS=0.0.0.0
+      register: guacd_listen_address
+
+    - name: Restart guacd.service
+      systemd:
+        state: restarted
+        daemon_reload: true
+        name: guacd
+      when: guacd_listen_address is changed
+  roles:
+    - role: man-logging-forward
+      kmlf_destination: "{{ global_head_ip }}"
+      kmlf_destination_port: "{{ global_syslog_destination_port | default(515) }}"
