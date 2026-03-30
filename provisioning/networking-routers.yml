@@ -1,10 +1,8 @@
 - name: Gather facts from proxy-jump
   hosts: proxy-jump
 
-- name: Sandbox networking
-  hosts:
-  - management
-  - routers
+- name: Update MAN apt cache
+  hosts: man
   become: true
   pre_tasks:
   - name: Test network connectivity
@@ -28,6 +26,11 @@
       msg: "Network unavailable, using existing package cache"
     when: network_test is failed
 
+
+- name: Sandbox networking
+  hosts: management,routers
+  become: true
+  pre_tasks:
   - name: Get systemd-resolved status (using command)
     command: resolvectl status
     register: resolved_status
