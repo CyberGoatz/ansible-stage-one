@@ -18,6 +18,7 @@
   - name: Run apt update
     apt:
       update_cache: true
+      cache_valid_time: 3600
     when: network_test is succeeded
     ignore_errors: true
 

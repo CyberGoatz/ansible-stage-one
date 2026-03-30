@@ -28,9 +28,11 @@
         owner: root
         group: root
         mode: '0600'
+      register: netplan_config
 
     - name: Apply Netplan
       command: netplan apply
+      when: netplan_config is changed
 
 - name: Test sandbox networking
   hosts: management:routers:ssh_nodes:!windows_hosts
@@ -80,6 +82,7 @@
 
   - name: test sandbox networking
     win_command: 'ping {{ hostvars["man"]["default_gateway_interface_ip"] }}'
+    changed_when: false
 
 - name: Remove stack name prefix from hostnames of windows hosts
   hosts: windows_hosts
