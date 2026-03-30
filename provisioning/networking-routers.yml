@@ -28,7 +28,7 @@
 
 
 - name: Sandbox networking
-  hosts: management,routers
+  hosts: management:routers
   become: true
   pre_tasks:
   - name: Get systemd-resolved status (using command)

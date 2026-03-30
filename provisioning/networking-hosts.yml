@@ -1,5 +1,5 @@
 - name: Sandbox networking for netplan hosts
-  hosts: ssh_nodes,!routers,!windows_hosts
+  hosts: ssh_nodes:!routers:!windows_hosts
   become: true
   tasks:
     - name: Skip for non-netplan hosts
@@ -33,7 +33,7 @@
       command: netplan apply
 
 - name: Test sandbox networking
-  hosts: management,routers,ssh_nodes,!windows_hosts
+  hosts: management:routers:ssh_nodes:!windows_hosts
   tasks:
   - command: 'ping -c 3 {{ hostvars["man"]["default_gateway_interface_ip"] }}'
     changed_when: false
@@ -43,7 +43,7 @@
     delay: 10
 
 - name: remove stack name prefix from hostnames of linux nodes
-  hosts: management,ssh_nodes,!windows_hosts
+  hosts: management:ssh_nodes:!windows_hosts
   become: true
   tasks:
     - name: set a new hostname

@@ -1,6 +1,5 @@
 - name: Deploy blackbox-exporter & prometheus on man
-  hosts:
-   - man
+  hosts: man
   become: true
   roles:
     - role: prometheus
@@ -11,7 +10,7 @@
         (groups['monitored_hosts'] is defined and (groups['monitored_hosts']|length>0))
 
 - name: Deploy node-exporter on listed Linux hosts
-  hosts: monitor-os,!windows_hosts
+  hosts: monitor-os:!windows_hosts
   become: true
   roles:
     - role: node-exporter
@@ -20,7 +19,7 @@
         - groups["monitor-os"] is defined and (groups["monitor-os"]|length>0)
 
 - name: Deploy node-exporter on all Linux hosts
-  hosts: routers,hosts,!proxy-jump,!windows_hosts
+  hosts: routers:hosts:!proxy-jump:!windows_hosts
   become: true
   roles:
     - role: node-exporter
