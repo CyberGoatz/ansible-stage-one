@@ -27,7 +27,6 @@
       msg: "Network unavailable, using existing package cache"
     when: network_test is failed
 
-
 - name: Sandbox networking
   hosts: management:routers
   become: true
@@ -78,6 +77,9 @@
       selectattr("macaddress", "defined") |
       rejectattr("macaddress", "in", inventory_mac_addresses) |
       selectattr("type", "eq", "ether") | list
+    -%}
+    {%- set the_rest_interfaces = the_rest_interfaces | selectattr("pciid", "defined") +
+       the_rest_interfaces | selectattr("media", "defined")
     -%}
     {%- for interface in the_rest_interfaces -%}
       {%- set variables.interfaces = variables.interfaces + [{
