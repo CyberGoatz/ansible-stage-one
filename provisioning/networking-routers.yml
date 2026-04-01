@@ -67,6 +67,7 @@
         {%- set variables.interfaces = variables.interfaces + [{
           "interface_default_gateway": interface.def_gw_ip,
           "interface_mac": interface.mac,
+          "interface_ip": network.mac_to_ip(interface.mac),
           "interface_routes": variables.routes,
           "interface_device": network.mac_to_interface(interface.mac)
         }] -%}
@@ -84,6 +85,7 @@
     {%- for interface in the_rest_interfaces -%}
       {%- set variables.interfaces = variables.interfaces + [{
         "interface_mac": interface.macaddress,
+        "interface_ip": network.mac_to_ip(interface.macaddress),
         "interface_device": interface.device
       }] -%}
     {%- endfor -%}
