@@ -74,11 +74,15 @@
 
 - name: check the connection with windows virtual machines
   hosts: windows_hosts
+  gather_facts: false
   tasks:
   - name: Wait 1600 seconds for target connection to become reachable/usable
     wait_for_connection:
       connect_timeout: 10
       timeout: 1600
+
+  - name: Gather facts
+    setup:
 
   - name: test sandbox networking
     win_command: 'ping {{ hostvars["man"]["default_gateway_interface_ip"] }}'
