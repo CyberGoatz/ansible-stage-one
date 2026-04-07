@@ -1,6 +1,34 @@
 - name: Gather facts from proxy-jump
   hosts: proxy-jump
 
+- name: Remove stack name prefix from hostnames
+  hosts: man:routers
+  become: true
+  tasks:
+  - name: set a new hostname
+    hostname:
+      name: '{{ inventory_hostname }}'
+
+  - name: Make cloud-init to preserve changes
+    lineinfile:
+      path: /etc/cloud/cloud.cfg
+      regexp: '^manage_etc_hosts'
+      line: 'manage_etc_hosts: localhost'
+    when: ansible_facts['os_family'] != 'FreeBSD'
+
+  - name: Make cloud-init to preserve changes
+    lineinfile:
+      path: /usr/local/etc/cloud/cloud.cfg
+      regexp: '^manage_etc_hosts'
+      line: 'manage_etc_hosts: localhost'
+    when: ansible_facts['os_family'] == 'FreeBSD'
+
+  - name: remove stack name prefix from /etc/hosts file
+    replace:
+      path: /etc/hosts
+      regexp: '{{ global_sandbox_name }}-'
+      replace: ''
+
 - name: Update MAN apt cache
   hosts: man
   become: true
@@ -28,7 +56,7 @@
     when: network_test is failed
 
 - name: Sandbox networking
-  hosts: management:routers
+  hosts: man:routers
   become: true
   pre_tasks:
   - name: Get systemd-resolved status (using command)

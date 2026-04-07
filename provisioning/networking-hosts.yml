@@ -35,7 +35,7 @@
       when: netplan_config is changed
 
 - name: Test sandbox networking
-  hosts: management:routers:ssh_nodes:!windows_hosts
+  hosts: ssh_nodes:!routers:!windows_hosts
   tasks:
   - command: 'ping -c 3 {{ hostvars["man"]["default_gateway_interface_ip"] }}'
     changed_when: false
@@ -44,8 +44,8 @@
     retries: 18
     delay: 10
 
-- name: remove stack name prefix from hostnames of linux nodes
-  hosts: management:ssh_nodes:!windows_hosts
+- name: remove stack name prefix from hostnames of linux hosts
+  hosts: ssh_nodes:!routers:!windows_hosts
   become: true
   tasks:
     - name: set a new hostname
@@ -99,4 +99,3 @@
   - name: reboot machine
     win_reboot:
     when: win_hostname_return_value.reboot_required
-
