@@ -50,27 +50,7 @@
   tasks:
     - name: set a new hostname
       hostname:
-          name: '{{ inventory_hostname }}'
-
-    - name: Make cloud-init to preserve changes
-      lineinfile:
-        path: /etc/cloud/cloud.cfg
-        regexp: '^manage_etc_hosts'
-        line: 'manage_etc_hosts: localhost'
-      when: ansible_facts['os_family'] != 'FreeBSD'
-
-    - name: Make cloud-init to preserve changes
-      lineinfile:
-        path: /usr/local/etc/cloud/cloud.cfg
-        regexp: '^manage_etc_hosts'
-        line: 'manage_etc_hosts: localhost'
-      when: ansible_facts['os_family'] == 'FreeBSD'
-
-    - name: remove stack name prefix from /etc/hosts file
-      replace:
-          path: /etc/hosts
-          regexp: '{{ global_sandbox_name }}-'
-          replace: ''
+        name: '{{ inventory_hostname }}'
 
 - name: check the connection with windows virtual machines
   hosts: windows_hosts
