@@ -38,6 +38,7 @@
 - name: Sandbox networking
   hosts: man:routers
   become: true
+  strategy: host_pinned
   pre_tasks:
   - name: Get systemd-resolved status (using command)
     command: resolvectl status
