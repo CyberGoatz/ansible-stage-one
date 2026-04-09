@@ -19,8 +19,7 @@
     run_all: "{{ groups['monitor-os'] is defined and (groups['monitor-os'] | length == 0) }}"
   roles:
     - role: node-exporter
-      when:
-        - ansible_os_family == 'Debian' or ansible_os_family == 'RedHat' or ansible_os_family == 'FreeBSD'
+      when: ansible_os_family == 'Debian' or ansible_os_family == 'RedHat' or ansible_os_family == 'FreeBSD'
 
 - name: Deploy windows-exporter on Windows hosts
   hosts: "{{ 'monitor-os:&windows_hosts' if run_listed else 'windows_hosts' if run_all else omit }}"
