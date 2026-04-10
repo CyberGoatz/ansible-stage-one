@@ -1,0 +1,81 @@
+- name: Sandbox networking for netplan hosts
+  hosts: ssh_nodes:!routers:!windows_hosts
+  become: true
+  tasks:
+    - name: Skip for non-netplan hosts
+      ansible.builtin.meta: end_host
+      when: ansible_distribution != 'Ubuntu' and (ansible_distribution != 'Debian' or ansible_distribution_version is not version('12', '>='))
+
+    - name: Get user network interface
+      set_fact:
+        user_network_interface: "{{ ansible_interfaces | map('regex_replace', '^', 'ansible_') | map('extract', vars) | selectattr('ipv4.address', 'defined') | selectattr('ipv4.address', 'eq', user_network_ip) | map(attribute='device') | first }}"
+
+    - name: Create Netplan configuration file
+      copy:
+        content: |
+          #jinja2: trim_blocks: True, lstrip_blocks: True
+          network:
+            version: 2
+            ethernets:
+              {% for interface in ansible_interfaces | reject('equalto', 'lo') | sort %}
+              {{ interface }}:
+                dhcp4: true
+                dhcp4-overrides:
+                  route-metric: {{ 100 if interface == user_network_interface else 200 }}
+                dhcp6: false
+              {% endfor %}
+        dest: /etc/netplan/50-cloud-init.yaml
+        owner: root
+        group: root
+        mode: '0600'
+      register: netplan_config
+
+    - name: Apply Netplan
+      command: netplan apply
+      when: netplan_config is changed
+
+- name: Test sandbox networking
+  hosts: ssh_nodes:!routers:!windows_hosts
+  tasks:
+  - command: 'ping -c 3 {{ hostvars["man"]["default_gateway_interface_ip"] }}'
+    changed_when: false
+    register: ping_result
+    until: ping_result is not failed
+    retries: 18
+    delay: 10
+
+- name: remove stack name prefix from hostnames of linux hosts
+  hosts: ssh_nodes:!routers:!windows_hosts
+  become: true
+  tasks:
+    - name: set a new hostname
+      hostname:
+        name: '{{ inventory_hostname }}'
+
+- name: check the connection with windows virtual machines
+  hosts: windows_hosts
+  gather_facts: false
+  tasks:
+  - name: Wait 1600 seconds for target connection to become reachable/usable
+    wait_for_connection:
+      connect_timeout: 10
+      timeout: 1600
+
+  - name: Gather facts
+    setup:
+
+  - name: test sandbox networking
+    win_command: 'ping {{ hostvars["man"]["default_gateway_interface_ip"] }}'
+    changed_when: false
+
+- name: Remove stack name prefix from hostnames of windows hosts
+  hosts: windows_hosts
+  tasks:
+  - name: set a new hostname
+    win_hostname:
+      name: '{{ inventory_hostname }}'
+    register: win_hostname_return_value
+
+  - name: reboot machine
+    win_reboot:
+    when: win_hostname_return_value.reboot_required

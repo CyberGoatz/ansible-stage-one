@@ -1,0 +1,29 @@
+- name: Install Chrony, guacd and setup man-logging-forward on MAN
+  hosts: man
+  become: true
+  pre_tasks:
+    - name: Install Chrony
+      apt:
+        name: chrony
+
+    - name: Install guacd
+      apt:
+        name: guacd
+
+    - name: Change default listening address of guacd
+      lineinfile:
+        path: /etc/default/guacd
+        regexp: LISTEN_ADDRESS=.*
+        line: LISTEN_ADDRESS=0.0.0.0
+      register: guacd_listen_address
+
+    - name: Restart guacd.service
+      systemd:
+        state: restarted
+        daemon_reload: true
+        name: guacd
+      when: guacd_listen_address is changed
+  roles:
+    - role: man-logging-forward
+      kmlf_destination: "{{ global_head_ip }}"
+      kmlf_destination_port: "{{ global_syslog_destination_port | default(515) }}"
