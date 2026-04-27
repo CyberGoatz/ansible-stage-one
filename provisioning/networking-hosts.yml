@@ -25,18 +25,24 @@
       interface_interfaces: '
       {%- import "roles/common/templates/network.j2" as network with context -%}
       {%- set variables = namespace(interfaces=[]) -%}
-      {%- set variables.interfaces = variables.interfaces + [{
-        "interface_default_gateway": ansible_default_ipv4.gateway,
-        "interface_mac": ansible_default_ipv4.macaddress,
-        "interface_ip": ansible_default_ipv4.address,
-        "interface_net_prefix": ansible_default_ipv4.prefix,
-        "interface_device": ansible_default_ipv4.interface
-      }] -%}
+      {%- if host_management_interface is defined and host_management_interface -%}
+        {%- set mgmt_device = network.mac_to_interface(host_management_interface.mac) -%}
+        {%- if mgmt_device -%}
+          {%- set variables.interfaces = variables.interfaces + [{
+            "interface_mac": host_management_interface.mac,
+            "interface_ip": host_management_interface.ip,
+            "interface_net_prefix": host_management_interface.net_prefix,
+            "interface_device": mgmt_device
+          }] -%}
+        {%- endif -%}
+      {%- endif -%}
       {%- if host_network_interfaces is defined and host_network_interfaces -%}
         {%- for interface in host_network_interfaces -%}
           {%- set device = network.mac_to_interface(interface.mac) -%}
-          {%- if device and device != ansible_default_ipv4.interface -%}
+          {%- if device -%}
+            {%- set default_gateway = ansible_default_ipv4.gateway if ansible_default_ipv4.macaddress == interface.mac else "" -%}
             {%- set variables.interfaces = variables.interfaces + [{
+              "interface_default_gateway": default_gateway,
               "interface_mac": interface.mac,
               "interface_ip": interface.ip,
               "interface_net_prefix": interface.net_prefix,
